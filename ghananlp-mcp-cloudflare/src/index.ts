@@ -178,8 +178,15 @@ async function textToSpeech(apiKey: string, text: string, language: string): Pro
   }
 
   const audioData = await response.arrayBuffer();
-  const base64 = btoa(String.fromCharCode(...new Uint8Array(audioData)));
-  return base64;
+  // Use chunked encoding to avoid stack overflow with large audio buffers
+  const bytes = new Uint8Array(audioData);
+  let binary = "";
+  const chunkSize = 8192;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
 }
 
 // Tool execution
@@ -321,11 +328,11 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     
-    // CORS headers
+    // CORS headers - include X-GhanaNLP-API-Key for browser clients
     const corsHeaders = {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization"
+      "Access-Control-Allow-Headers": "Content-Type, Authorization, X-GhanaNLP-API-Key"
     };
 
     // Handle CORS preflight
