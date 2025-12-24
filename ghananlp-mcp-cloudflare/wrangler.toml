@@ -4,8 +4,9 @@ compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
 
 [vars]
-# Default empty - set via wrangler secret or dashboard
-# GHANANLP_API_KEY = ""
+# SECURITY MODE: Set to "true" to require users to provide their own API key
+# This is RECOMMENDED for public deployments to prevent API abuse
+REQUIRE_USER_API_KEY = "true"
 
-# Uncomment to use secrets (recommended for production)
+# If REQUIRE_USER_API_KEY = "false", you can set a default server API key:
 # Run: wrangler secret put GHANANLP_API_KEY

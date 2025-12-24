@@ -8,7 +8,10 @@
  */
 
 export interface Env {
-  GHANANLP_API_KEY: string;
+  // Optional: Set a default API key (not recommended for public deployments)
+  GHANANLP_API_KEY?: string;
+  // Set to "true" to require users to provide their own API key
+  REQUIRE_USER_API_KEY?: string;
 }
 
 // GhanaNLP API Configuration
@@ -332,29 +335,56 @@ export default {
 
     // Health check
     if (url.pathname === "/" || url.pathname === "/health") {
+      const requireUserKey = env.REQUIRE_USER_API_KEY === "true";
       return new Response(JSON.stringify({
         status: "ok",
         service: "ghananlp-mcp",
         version: "1.0.0",
+        auth: {
+          mode: requireUserKey ? "user-provided" : "server-or-user",
+          header: "X-GhanaNLP-API-Key",
+          getApiKey: "https://ghananlp.org"
+        },
         endpoints: {
           mcp: "/mcp",
-          sse: "/sse"
+          translate: "/api/translate",
+          tts: "/api/tts",
+          asr: "/api/asr"
         }
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     }
 
-    // Get API key
-    const apiKey = env.GHANANLP_API_KEY || request.headers.get("X-GhanaNLP-API-Key") || "";
+    // Get API key - prioritize user-provided key
+    const userApiKey = request.headers.get("X-GhanaNLP-API-Key");
+    const requireUserKey = env.REQUIRE_USER_API_KEY === "true";
     
-    if (!apiKey) {
-      return new Response(JSON.stringify({
-        error: "Missing API key. Set GHANANLP_API_KEY secret or pass X-GhanaNLP-API-Key header."
-      }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
-      });
+    let apiKey: string;
+    
+    if (requireUserKey) {
+      // Mode 1: Users MUST provide their own API key (recommended for public deployments)
+      if (!userApiKey) {
+        return new Response(JSON.stringify({
+          error: "API key required. Pass your GhanaNLP API key via X-GhanaNLP-API-Key header. Get one at https://ghananlp.org"
+        }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+      apiKey = userApiKey;
+    } else {
+      // Mode 2: Use user key if provided, otherwise fall back to server key
+      apiKey = userApiKey || env.GHANANLP_API_KEY || "";
+      
+      if (!apiKey) {
+        return new Response(JSON.stringify({
+          error: "Missing API key. Set GHANANLP_API_KEY secret or pass X-GhanaNLP-API-Key header."
+        }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
     }
 
     // MCP JSON-RPC endpoint

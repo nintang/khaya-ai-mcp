@@ -31,8 +31,27 @@ npm install
 npx wrangler login
 ```
 
-### 3. Set Your API Key as a Secret
+### 3. Choose Security Mode
 
+**Option A: Users provide their own API key (RECOMMENDED for public deployments)**
+
+This is the default. Users must pass their own GhanaNLP API key via header. This prevents API abuse.
+
+```toml
+# wrangler.toml (already set by default)
+[vars]
+REQUIRE_USER_API_KEY = "true"
+```
+
+**Option B: Server provides a shared API key (for private/internal use only)**
+
+```toml
+# wrangler.toml
+[vars]
+REQUIRE_USER_API_KEY = "false"
+```
+
+Then set your API key as a secret:
 ```bash
 npx wrangler secret put GHANANLP_API_KEY
 # Enter your API key when prompted
@@ -76,9 +95,10 @@ Content-Type: application/json
 
 **Translate:**
 ```bash
+# Users pass their own GhanaNLP API key
 curl -X POST https://your-worker.workers.dev/api/translate \
   -H "Content-Type: application/json" \
-  -H "X-GhanaNLP-API-Key: your-api-key" \
+  -H "X-GhanaNLP-API-Key: YOUR_GHANANLP_API_KEY" \
   -d '{"text": "Hello, how are you?", "language_pair": "en-tw"}'
 ```
 
