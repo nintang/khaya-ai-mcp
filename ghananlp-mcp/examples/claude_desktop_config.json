@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "ghananlp": {
+      "command": "ghananlp-mcp",
+      "env": {
+        "GHANANLP_API_KEY": "your-api-key-here"
+      }
+    }
+  }
+}

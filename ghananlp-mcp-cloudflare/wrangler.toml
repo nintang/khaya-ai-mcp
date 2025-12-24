@@ -1,0 +1,12 @@
+name = "ghananlp-mcp"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+# SECURITY MODE: Set to "true" to require users to provide their own API key
+# This is RECOMMENDED for public deployments to prevent API abuse
+REQUIRE_USER_API_KEY = "true"
+
+# If REQUIRE_USER_API_KEY = "false", you can set a default server API key:
+# Run: wrangler secret put GHANANLP_API_KEY
