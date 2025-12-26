@@ -342,7 +342,10 @@ export default {
         version: "1.0.0",
         auth: {
           mode: requireUserKey ? "user-provided" : "server-or-user",
-          header: "X-GhanaNLP-API-Key",
+          methods: [
+            "Authorization: Bearer <api-key>",
+            "X-GhanaNLP-API-Key: <api-key>"
+          ],
           getApiKey: "https://ghananlp.org"
         },
         endpoints: {
@@ -357,15 +360,26 @@ export default {
     }
 
     // Helper to get API key (returns null if not available)
+    // Accepts: X-GhanaNLP-API-Key header, Authorization: Bearer <key>, or server env
     const getApiKey = (): string | null => {
-      const userApiKey = request.headers.get("X-GhanaNLP-API-Key");
-      const requireUserKey = env.REQUIRE_USER_API_KEY === "true";
+      // Check custom header first
+      const customHeader = request.headers.get("X-GhanaNLP-API-Key");
+      if (customHeader) return customHeader;
       
-      if (requireUserKey) {
-        return userApiKey || null;
-      } else {
-        return userApiKey || env.GHANANLP_API_KEY || null;
+      // Check Authorization: Bearer header
+      const authHeader = request.headers.get("Authorization");
+      if (authHeader?.startsWith("Bearer ")) {
+        const token = authHeader.slice(7).trim();
+        if (token) return token;
       }
+      
+      // Fall back to server env if allowed
+      const requireUserKey = env.REQUIRE_USER_API_KEY === "true";
+      if (!requireUserKey && env.GHANANLP_API_KEY) {
+        return env.GHANANLP_API_KEY;
+      }
+      
+      return null;
     };
 
     // MCP JSON-RPC endpoint - allows handshake without API key
@@ -396,7 +410,7 @@ export default {
             id: mcpRequest.id,
             error: { 
               code: -32001, 
-              message: "API key required. Pass your GhanaNLP API key via X-GhanaNLP-API-Key header. Get one at https://ghananlp.org" 
+              message: "API key required. Pass your GhanaNLP API key via Bearer Token or X-GhanaNLP-API-Key header. Get one at https://ghananlp.org" 
             }
           }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" }
@@ -423,7 +437,7 @@ export default {
     const apiKey = getApiKey();
     if (!apiKey) {
       return new Response(JSON.stringify({
-        error: "API key required. Pass your GhanaNLP API key via X-GhanaNLP-API-Key header. Get one at https://ghananlp.org"
+        error: "API key required. Pass your GhanaNLP API key via Authorization: Bearer header or X-GhanaNLP-API-Key header. Get one at https://ghananlp.org"
       }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" }
