@@ -325,7 +325,7 @@ export default {
     const corsHeaders = {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization"
+      "Access-Control-Allow-Headers": "Content-Type, Authorization, X-GhanaNLP-API-Key"
     };
 
     // Handle CORS preflight
@@ -356,38 +356,19 @@ export default {
       });
     }
 
-    // Get API key - prioritize user-provided key
-    const userApiKey = request.headers.get("X-GhanaNLP-API-Key");
-    const requireUserKey = env.REQUIRE_USER_API_KEY === "true";
-    
-    let apiKey: string;
-    
-    if (requireUserKey) {
-      // Mode 1: Users MUST provide their own API key (recommended for public deployments)
-      if (!userApiKey) {
-        return new Response(JSON.stringify({
-          error: "API key required. Pass your GhanaNLP API key via X-GhanaNLP-API-Key header. Get one at https://ghananlp.org"
-        }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" }
-        });
-      }
-      apiKey = userApiKey;
-    } else {
-      // Mode 2: Use user key if provided, otherwise fall back to server key
-      apiKey = userApiKey || env.GHANANLP_API_KEY || "";
+    // Helper to get API key (returns null if not available)
+    const getApiKey = (): string | null => {
+      const userApiKey = request.headers.get("X-GhanaNLP-API-Key");
+      const requireUserKey = env.REQUIRE_USER_API_KEY === "true";
       
-      if (!apiKey) {
-        return new Response(JSON.stringify({
-          error: "Missing API key. Set GHANANLP_API_KEY secret or pass X-GhanaNLP-API-Key header."
-        }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" }
-        });
+      if (requireUserKey) {
+        return userApiKey || null;
+      } else {
+        return userApiKey || env.GHANANLP_API_KEY || null;
       }
-    }
+    };
 
-    // MCP JSON-RPC endpoint
+    // MCP JSON-RPC endpoint - allows handshake without API key
     if (url.pathname === "/mcp") {
       if (request.method !== "POST") {
         return new Response("Method not allowed", { status: 405, headers: corsHeaders });
@@ -395,8 +376,34 @@ export default {
 
       try {
         const mcpRequest = await request.json() as MCPRequest;
-        const response = await handleMCPRequest(mcpRequest, apiKey);
         
+        // Methods that don't require API key (handshake/discovery)
+        const noAuthMethods = ["initialize", "notifications/initialized", "tools/list", "ping"];
+        
+        if (noAuthMethods.includes(mcpRequest.method)) {
+          // Handle without API key requirement
+          const response = await handleMCPRequest(mcpRequest, "");
+          return new Response(JSON.stringify(response), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+        
+        // For tools/call and other methods, require API key
+        const apiKey = getApiKey();
+        if (!apiKey) {
+          return new Response(JSON.stringify({
+            jsonrpc: "2.0",
+            id: mcpRequest.id,
+            error: { 
+              code: -32001, 
+              message: "API key required. Pass your GhanaNLP API key via X-GhanaNLP-API-Key header. Get one at https://ghananlp.org" 
+            }
+          }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+        
+        const response = await handleMCPRequest(mcpRequest, apiKey);
         return new Response(JSON.stringify(response), {
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
@@ -410,6 +417,17 @@ export default {
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }
+    }
+    
+    // For direct API endpoints, always require API key
+    const apiKey = getApiKey();
+    if (!apiKey) {
+      return new Response(JSON.stringify({
+        error: "API key required. Pass your GhanaNLP API key via X-GhanaNLP-API-Key header. Get one at https://ghananlp.org"
+      }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
     }
 
     // SSE endpoint for MCP streaming
