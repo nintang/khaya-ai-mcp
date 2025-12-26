@@ -1,6 +1,6 @@
 # GhanaNLP MCP Server - Cloudflare Workers
 
-A Cloudflare Workers deployment of the GhanaNLP MCP server for Translation, ASR, and TTS.
+Deploy your own GhanaNLP MCP server on Cloudflare Workers for Translation, ASR, and TTS.
 
 ## Features
 
@@ -8,7 +8,7 @@ A Cloudflare Workers deployment of the GhanaNLP MCP server for Translation, ASR,
 - 🎤 **ASR** - Speech-to-Text for African languages
 - 🔊 **TTS** - Text-to-Speech for African languages
 - ⚡ **Edge Deployment** - Fast global response times via Cloudflare's edge network
-- 🔒 **Secure** - API key stored as Cloudflare secret
+- 🔒 **Secure** - Users provide their own GhanaNLP API key (no shared keys)
 
 ## Prerequisites
 
@@ -106,7 +106,7 @@ curl -X POST https://your-worker.workers.dev/api/translate \
 ```bash
 curl -X POST https://your-worker.workers.dev/api/tts \
   -H "Content-Type: application/json" \
-  -H "X-GhanaNLP-API-Key: your-api-key" \
+  -H "X-GhanaNLP-API-Key: YOUR_GHANANLP_API_KEY" \
   -d '{"text": "Akwaaba", "language": "tw"}'
 ```
 
@@ -114,15 +114,16 @@ curl -X POST https://your-worker.workers.dev/api/tts \
 ```bash
 curl -X POST https://your-worker.workers.dev/api/asr \
   -H "Content-Type: application/json" \
-  -H "X-GhanaNLP-API-Key: your-api-key" \
+  -H "X-GhanaNLP-API-Key: YOUR_GHANANLP_API_KEY" \
   -d '{"audio_base64": "...", "language": "tw"}'
 ```
 
-## Using with Claude Desktop
+## Using with Claude Desktop / Cursor
 
-Add to your Claude Desktop config:
+After deploying, configure your MCP client to use your worker.
 
-**macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+**Claude Desktop (macOS):** `~/Library/Application Support/Claude/claude_desktop_config.json`  
+**Cursor:** `.cursor/mcp.json`
 
 ```json
 {
@@ -130,14 +131,17 @@ Add to your Claude Desktop config:
     "ghananlp": {
       "transport": {
         "type": "http",
-        "url": "https://ghananlp-mcp.your-subdomain.workers.dev/mcp"
+        "url": "https://ghananlp-mcp.<your-subdomain>.workers.dev/mcp",
+        "headers": {
+          "X-GhanaNLP-API-Key": "YOUR_GHANANLP_API_KEY"
+        }
       }
     }
   }
 }
 ```
 
-Or if using the Python local server with the Cloudflare worker as backend, you can create a proxy.
+> **Note:** Replace `<your-subdomain>` with your Cloudflare account subdomain shown after deployment.
 
 ## MCP Tools
 
